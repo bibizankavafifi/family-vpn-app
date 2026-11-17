@@ -13,6 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'VLESS VPN',
       theme: ThemeData(
         useMaterial3: true,
@@ -31,8 +32,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const String _keysUrl =
-      'https://jsdelivr.net';
+  static const List<String> _mirrorUrls = [
+    'https://githubusercontent.com',
+    'https://jsdelivr.net',
+    'https://jsdelivr.net',
+  ];
 
   final FlutterV2ray _flutterV2ray = FlutterV2ray(
     onStatusChanged: (status) {
@@ -45,6 +49,26 @@ class _HomePageState extends State<HomePage> {
   List<String> _keysList = [];
   int _currentIndex = 0;
 
+  Future<List<String>> _fetchKeysFromMirrors() async {
+    for (final url in _mirrorUrls) {
+      try {
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 4));
+        if (response.statusCode == 200) {
+          final lines = const LineSplitter().convert(response.body);
+          final valid = lines
+              .map((line) => line.trim())
+              .where((line) => line.startsWith('vless://'))
+              .toList();
+          if (valid.isNotEmpty) return valid;
+        }
+      } catch (_) {}
+    }
+    throw Exception(
+        'Провайдер блокирует загрузку ключей без VPN. Включите любой VPN на 5 секунд, нажмите ПОДКЛЮЧИТЬ один раз (список сохранится в памяти), затем старый VPN можно выключить.');
+  }
+
   Future<void> _connectVpn({bool nextServer = false}) async {
     setState(() {
       _isLoading = true;
@@ -52,44 +76,26 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      if (_keysList.isEmpty || !nextServer) {
-        final response = await http.get(Uri.parse(_keysUrl));
-        if (response.statusCode != 200) {
-          throw Exception('Ошибка загрузки: ${response.statusCode}');
-        }
-
-        final lines = const LineSplitter().convert(response.body);
-        _keysList = lines
-            .map((line) => line.trim())
-            .where((line) => line.startsWith('vless://'))
-            .toList();
-
-        if (_keysList.isEmpty) {
-          throw Exception('В файле не найдены ключи VLESS');
-        }
+      if (_keysList.isEmpty) {
+        _keysList = await _fetchKeysFromMirrors();
         _currentIndex = 0;
-      } else {
+      } else if (nextServer) {
         _currentIndex = (_currentIndex + 1) % _keysList.length;
       }
 
       final String vlessLink = _keysList[_currentIndex];
 
       setState(() {
-        _statusMessage = 'Инициализация V2Ray...';
+        _statusMessage = 'Подключение к серверу #${_currentIndex + 1}...';
       });
 
       await _flutterV2ray.initializeV2Ray();
-
       final V2RayURL parser = FlutterV2ray.parseFromURL(vlessLink);
 
       final bool granted = await _flutterV2ray.requestPermission();
       if (!granted) {
         throw Exception('Разрешение на VPN не получено');
       }
-
-      setState(() {
-        _statusMessage = 'Подключение к серверу #${_currentIndex + 1}...';
-      });
 
       _flutterV2ray.startV2Ray(
         remark: parser.remark,
@@ -105,7 +111,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'Ошибка: ${e.toString()}';
+        _statusMessage = e.toString().replaceFirst('Exception: ', '');
       });
     } finally {
       if (mounted) {
