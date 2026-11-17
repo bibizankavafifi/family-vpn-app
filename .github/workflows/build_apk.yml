@@ -3,7 +3,7 @@ name: Build Flutter APK
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # позволяет запускать сборку вручную
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,14 +12,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'   # можно указать любую стабильную версию
+          flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Create Flutter project (если файлов ещё нет)
-        run: flutter create . --platforms=android
+      - name: Create Flutter project
+        run: flutter create --project-name vless_vpn_app --platforms android .
 
       - name: Install dependencies
         run: flutter pub get
@@ -30,5 +30,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: family-vpn-apk
           path: build/app/outputs/flutter-apk/app-release.apk
