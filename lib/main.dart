@@ -31,13 +31,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Замените на реальный URL вашего файла с ключами
   static const String _keysUrl =
-      'https://raw.githubusercontent.com/ВАШ_ЛОГИН/ВАШ_РЕПОЗИТОРИЙ/main/keys.txt';
+      'https://githubusercontent.com';
 
   final FlutterV2ray _flutterV2ray = FlutterV2ray(
     onStatusChanged: (status) {
-      // Можно обновлять UI при изменении статуса
       debugPrint('V2Ray status: ${status.state}');
     },
   );
@@ -52,13 +50,11 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      // 1. Скачиваем список ключей
       final response = await http.get(Uri.parse(_keysUrl));
       if (response.statusCode != 200) {
         throw Exception('Ошибка загрузки: ${response.statusCode}');
       }
 
-      // 2. Ищем первую строку, начинающуюся с vless://
       final lines = const LineSplitter().convert(response.body);
       String? vlessLink;
       for (final line in lines) {
@@ -76,13 +72,10 @@ class _HomePageState extends State<HomePage> {
         _statusMessage = 'Инициализация V2Ray...';
       });
 
-      // 3. Инициализируем ядро (достаточно один раз, но можно и при каждом подключении)
       await _flutterV2ray.initializeV2Ray();
 
-      // 4. Разбираем ссылку
       final V2RayURL parser = FlutterV2ray.parseFromURL(vlessLink);
 
-      // 5. Запрашиваем разрешение (для VPN-режима обязательно)
       final bool granted = await _flutterV2ray.requestPermission();
       if (!granted) {
         throw Exception('Разрешение на VPN не получено');
@@ -92,13 +85,12 @@ class _HomePageState extends State<HomePage> {
         _statusMessage = 'Подключение...';
       });
 
-      // 6. Запускаем V2Ray в режиме VPN
       _flutterV2ray.startV2Ray(
         remark: parser.remark,
         config: parser.getFullConfiguration(),
         blockedApps: null,
         bypassSubnets: null,
-        proxyOnly: false, // VPN-режим
+        proxyOnly: false,
       );
 
       setState(() {
@@ -148,7 +140,6 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Большая круглая кнопка
             SizedBox(
               width: 180,
               height: 180,
